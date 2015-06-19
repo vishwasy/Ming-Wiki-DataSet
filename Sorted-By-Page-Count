@@ -1,0 +1,98 @@
+package poc.wiki.data.mining;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.WritableComparator;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.util.GenericOptionsParser;
+
+public class aggregate {
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) throws IOException, InterruptedException, ClassNotFoundException
+	{
+
+		
+		Configuration conf = new Configuration();
+		
+	
+		String UserArgs[] = new GenericOptionsParser(conf, args).getRemainingArgs();
+
+		Job myjob = new Job(conf, "aggregate");
+		
+		//Setting class info to job object
+		myjob.setJarByClass(aggregate.class);
+		myjob.setMapperClass(MyMapper.class);
+        myjob.setReducerClass(MyReducer.class);
+        myjob.setSortComparatorClass(IntComparator.class);
+		// partitioner, combiner. sorting etc...
+		
+		//setting output data-types of both map and reduce
+		myjob.setMapOutputKeyClass(IntWritable.class);
+		myjob.setMapOutputValueClass(Text.class);
+		myjob.setOutputKeyClass(Text.class);
+		myjob.setOutputValueClass(IntWritable.class);
+		
+		//input and output formats
+		myjob.setInputFormatClass(SequenceFileInputFormat.class);
+		myjob.setOutputFormatClass(TextOutputFormat.class);
+		
+		//set the input and output
+		FileInputFormat.addInputPath(myjob, new Path(UserArgs[0]));
+		FileOutputFormat.setOutputPath(myjob, new Path(UserArgs[1]));
+		
+		//submit the job
+		System.exit(myjob.waitForCompletion(true)? 0 : 1);
+	}
+
+	public static class MyMapper extends
+	Mapper<Text, IntWritable, IntWritable, Text> {
+
+		public void map(Text key, IntWritable value, Context context)
+				throws IOException, InterruptedException {
+				context.write(value, key);
+		}
+	}
+	
+	
+	public static class MyReducer extends Reducer<IntWritable, Text, Text, IntWritable>
+	{
+		
+		public void reduce( IntWritable key, Iterable<Text> values, Context context) throws IOException,InterruptedException
+		{
+			for(Text value: values)
+			context.write(value,key);	
+			
+		}
+		
+	}
+
+
+public static class IntComparator extends WritableComparator {
+	public IntComparator() {
+	super(IntWritable.class);
+	}
+	private Integer num1;
+	private Integer num2;
+	@Override
+	public int compare(byte[] raw1, int offset1, int length1, byte[] raw2,
+	int offset2, int length2) {
+	num1 = ByteBuffer.wrap(raw1, offset1, length1).getInt();
+	num2 = ByteBuffer.wrap(raw2, offset2, length2).getInt();
+	return num2.compareTo(num1);
+	}
+	}
+}
