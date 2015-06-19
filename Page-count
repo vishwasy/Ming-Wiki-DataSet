@@ -1,0 +1,90 @@
+package poc.wiki.data.mining;
+
+import java.io.IOException;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.reduce.IntSumReducer;
+import org.apache.hadoop.util.GenericOptionsParser;
+
+public class test1 {
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) throws IOException, InterruptedException, ClassNotFoundException
+	{
+		// TODO Auto-generated method stub
+		
+		//create conf object
+		
+		Configuration conf = new Configuration();
+		
+		//parsing user command line arguments by ignoring Hadoop generic options...
+		String UserArgs[] = new GenericOptionsParser(conf, args).getRemainingArgs();
+		
+		//create job object...
+		
+		Job myjob = new Job(conf, "test1");
+		
+		//Setting class info to job object
+		myjob.setJarByClass(test1.class);
+		myjob.setMapperClass(MyMapper.class);
+        myjob.setReducerClass(IntSumReducer.class);
+        myjob.setCombinerClass(IntSumReducer.class);
+		// partitioner, combiner. sorting etc...
+		
+		//setting output data-types of both map and reduce
+		myjob.setMapOutputKeyClass(Text.class);
+		myjob.setMapOutputValueClass(IntWritable.class);
+		myjob.setOutputKeyClass(Text.class);
+		myjob.setOutputValueClass(IntWritable.class);
+		
+		//input and output formats
+		myjob.setInputFormatClass(TextInputFormat.class);
+		myjob.setOutputFormatClass(SequenceFileOutputFormat.class);
+		
+		//set the input and output
+		FileInputFormat.addInputPath(myjob, new Path(UserArgs[0]));
+		FileOutputFormat.setOutputPath(myjob, new Path(UserArgs[1]));
+		
+		//submit the job
+		System.exit(myjob.waitForCompletion(true)? 0 : 1);
+	}
+
+	// Develop Mapper class
+	public static class MyMapper extends Mapper<LongWritable, Text, Text, IntWritable>
+	{
+		
+		Text emitkey = new Text();
+		IntWritable emitvalue = new IntWritable();
+		
+		
+		public void map(LongWritable key, Text value, Context context) throws IOException,InterruptedException
+		{
+			
+			
+			String str = value.toString();
+			String details[] = str.split(" ");
+			if (details.length == 4)
+			{
+				String project = details[0];
+//				String page = details[1];
+				Integer requests = Integer.valueOf(details[2]);
+//				Integer datasize = Integer.valueOf(details[3]);
+				emitkey.set(project);
+				emitvalue.set(requests);
+			}
+			context.write(emitkey, emitvalue);
+			
+		}
+		
