@@ -1,0 +1,109 @@
+package poc.wiki.data.mining;
+
+import java.io.IOException;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.hadoop.util.GenericOptionsParser;
+
+public class Filesbyproject {
+
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) throws IOException, InterruptedException, ClassNotFoundException
+	{
+		// TODO Auto-generated method stub
+		
+		//create conf object
+		
+		Configuration conf = new Configuration();
+		
+		//parsing user command line arguments by ignoring Hadoop generic options...
+		String UserArgs[] = new GenericOptionsParser(conf, args).getRemainingArgs();
+		
+		//create job object...
+		
+		Job myjob = new Job(conf, "Multiple files by project");
+		
+		//Setting class info to job object
+		myjob.setJarByClass(Filesbyproject.class);
+		myjob.setMapperClass(MyMapper.class);
+        myjob.setReducerClass(MyReducer.class);
+
+		
+		//setting output data-types of both map and reduce
+		myjob.setMapOutputKeyClass(Text.class);
+		myjob.setMapOutputValueClass(Text.class);
+		myjob.setOutputKeyClass(NullWritable.class);
+		myjob.setOutputValueClass(Text.class);
+				
+		//set the input and output
+		FileInputFormat.addInputPath(myjob, new Path(UserArgs[0]));
+		FileOutputFormat.setOutputPath(myjob, new Path(UserArgs[1]));
+		
+		//submit the job
+		System.exit(myjob.waitForCompletion(true)? 0 : 1);
+	}
+
+	// Develop Mapper class
+	public static class MyMapper extends Mapper<LongWritable, Text, Text, Text>
+	{
+		
+		Text emitkey = new Text();
+		
+		
+		public void map(LongWritable key, Text value, Context context) throws IOException,InterruptedException
+		{
+			
+			
+			String str = value.toString();
+			String details[] = str.split(" ");
+			if (details.length == 4)
+			{
+				String project = details[0];
+				emitkey.set(project);
+				context.write(emitkey, value);
+			}
+			
+			
+		}
+		
+
+	}
+	
+	
+	public static class MyReducer extends Reducer<Text, Text, NullWritable , Text>
+	{
+		private MultipleOutputs<NullWritable, Text> multipleoutputs;
+		protected void setup(Context context)
+		{
+			multipleoutputs = new MultipleOutputs<NullWritable,Text>(context);
+		}
+	    
+		public void reduce( Text key, Iterable<Text> values, Context conetext) throws IOException,InterruptedException
+		{
+			for(Text value: values)
+			{
+				multipleoutputs.write(NullWritable.get(), value, key.toString());
+			}
+		}
+		
+		public void cleanup(Context context) throws IOException, InterruptedException
+		{
+			multipleoutputs.close();
+		}
+		
+	}
+	
+
+}
